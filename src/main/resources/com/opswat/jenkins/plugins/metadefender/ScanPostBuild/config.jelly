@@ -1,0 +1,30 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:entry title="API URL" description="http://[mdcore_ip]/file or https://api.metadefender.com/v4/file" field="scanURL">
+        <f:textbox />
+    </f:entry>
+    <f:entry title="API key" field="apiKey">
+        <f:textbox />
+    </f:entry>
+    <f:entry title="Rule" field="rule">
+        <f:textbox />
+    </f:entry>
+    <f:entry title="Folders/files to scan" description="Example: src|target|resource. Empty value means scan all folders" field="source">
+        <f:textbox />
+    </f:entry>
+    <f:entry title="Exclude folders/files" description="Example: work|.git" field="exclude">
+        <f:textbox />
+    </f:entry>
+    <f:entry title="Scan timeout per file (s)" field="timeout">
+        <f:textbox default="600"/>
+    </f:entry>
+    <f:entry title="Private scan (Only applicable for paid apikey on MetaDefender Cloud)" field="isPrivateScan">
+        <f:checkbox />
+    </f:entry>
+    <f:entry title="Show Blocked scan results only" field="isShowBlockedOnly">
+        <f:checkbox default="true"/>
+    </f:entry>
+    <f:entry title="Mark the build as failure if a threat is found" field="isAbortBuild">
+        <f:checkbox />
+    </f:entry>
+</j:jelly>
