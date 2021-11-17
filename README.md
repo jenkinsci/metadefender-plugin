@@ -10,7 +10,7 @@ mvn package
 # Usage
 
 - Sign up an account at <https://portal.opswat.com> and retrieve an API key for free user. The free user has limitations, please see the details at: <https://metadefender.opswat.com/licensing>. You can upgrade the license or purchase an on-premise product for freely usage
-- Add "Scan with MetaDefender" build step or a post-build action to your build configuration
+- Add "Scan with MetaDefender" build step or a post-build action or pipeline to your build configuration
 ![add build step](docs/images/add_build_step.JPG)
 ![configuration](docs/images/configuration.JPG)
 - Fill in the configurations (see the below list)
@@ -18,6 +18,27 @@ mvn package
 - Trigger the build
 - When the build is done, check the Console Output, it should show the scan results
 ![scan result](docs/images/scan_result.JPG)
+- For pipeline, you can use this sample to generate an Eicar file and scan, the build should be failed at "scan" stage because of a threat found
+```sh
+pipeline {
+    agent any
+    stages {
+        stage('build') {
+            steps {
+                bat 'echo X5O!P%%@AP[4\\PZX54(P^^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H* > file_to_scan.txt'
+            }
+            
+        }
+        stage('scan') {
+            steps {
+                step([$class: 'ScanBuilder', scanURL: 'http://metadefender_ip/file', apiKey: '', rule: '', 
+                     source: '', exclude: '', timeout: 600, isPrivateScan: false, isShowBlockedOnly: false, 
+                     isAbortBuild: true])
+             }
+        }
+    }
+}
+```
 
 
 Configuration:
