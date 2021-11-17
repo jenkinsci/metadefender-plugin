@@ -18,7 +18,7 @@ mvn package
 - Trigger the build
 - When the build is done, check the Console Output, it should show the scan results
 ![scan result](docs/images/scan_result.JPG)
-- For pipeline, you can use this sample to generate an Eicar file and scan, the build should be failed at "scan" stage because of a threat found
+- For pipeline, you can use this sample to generate an Eicar file and scan, the build should be failed at "scan" stage because of a threat found. Note: the script uses a static function, hudson.util.Secret.fromString, to convert string to secret so either you have to approve the function or uncheck Use Groovy Sandbox
 ```sh
 pipeline {
     agent any
@@ -27,15 +27,18 @@ pipeline {
             steps {
                 bat 'echo X5O!P%%@AP[4\\PZX54(P^^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H* > file_to_scan.txt'
             }
-            
         }
         stage('scan') {
             steps {
-                step([$class: 'ScanBuilder', scanURL: 'http://metadefender_ip/file', apiKey: '', rule: '', 
-                     source: '', exclude: '', timeout: 600, isPrivateScan: false, isShowBlockedOnly: false, 
-                     isAbortBuild: true])
-             }
-        }
+                script {
+                    withCredentials([string(credentialsId: 'MD_APIKEY', variable: 'md_apikey')]){
+							step([$class: 'ScanBuilder', scanURL: 'https://api.metadefender.com/v4/file', apiKey: hudson.util.Secret.fromString(md_apikey), rule: '', 
+							 source: '', exclude: '', timeout: 600, isPrivateScan: false, isShowBlockedOnly: false, 
+							 isAbortBuild: true])             
+					}
+				}
+			}
+		}		
     }
 }
 ```

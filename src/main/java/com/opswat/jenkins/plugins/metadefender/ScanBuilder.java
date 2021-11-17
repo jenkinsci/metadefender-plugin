@@ -7,6 +7,7 @@ import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import hudson.util.Secret;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -22,7 +23,7 @@ import java.util.concurrent.*;
 public class ScanBuilder extends Builder implements SimpleBuildStep {
 
     private final String scanURL;
-    private final String apiKey;
+    private final Secret apiKey;
     private final String source;
     private final String exclude;
     private final String rule;
@@ -35,7 +36,7 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
         return scanURL;
     }
 
-    public String getApiKey() {
+    public Secret getApiKey() {
         return apiKey;
     }
 
@@ -64,7 +65,7 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
     }
 
     @DataBoundConstructor
-    public ScanBuilder(String scanURL, String apiKey, String source, String exclude, String rule,
+    public ScanBuilder(String scanURL, Secret apiKey, String source, String exclude, String rule,
                        int timeout, boolean isAbortBuild, boolean isPrivateScan, boolean isShowBlockedOnly) {
         this.scanURL = scanURL;
         this.apiKey = apiKey;
@@ -93,7 +94,7 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
         //Start a scanner with 10 threads and scan
         Scanner scanner = new Scanner(10);
         boolean foundBlockedResult = scanner.Start(filesToScan,workspace + "",
-                scanURL, apiKey, rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
+                scanURL, apiKey.getPlainText(), rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
 
         //Mark the build Aborted if needed
         if (foundBlockedResult && isAbortBuild) {
@@ -104,7 +105,6 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
     @Symbol("greet")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-
         public FormValidation doCheckScanURL(@QueryParameter String value)
                 throws IOException, ServletException {
 

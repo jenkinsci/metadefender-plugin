@@ -4,7 +4,7 @@
         <f:textbox />
     </f:entry>
     <f:entry title="API key" field="apiKey">
-        <f:textbox />
+        <f:password />
     </f:entry>
     <f:entry title="Rule" field="rule">
         <f:textbox />

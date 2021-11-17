@@ -4,7 +4,7 @@ import hudson.*;
 import hudson.model.*;
 import hudson.tasks.*;
 import hudson.util.FormValidation;
-import jenkins.tasks.SimpleBuildStep;
+import hudson.util.Secret;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -13,13 +13,11 @@ import javax.servlet.ServletException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
 
 public class ScanPostBuild extends Recorder {
 
     private final String scanURL;
-    private final String apiKey;
+    private final Secret apiKey;
     private final String source;
     private final String exclude;
     private final String rule;
@@ -32,7 +30,7 @@ public class ScanPostBuild extends Recorder {
         return scanURL;
     }
 
-    public String getApiKey() {
+    public Secret getApiKey() {
         return apiKey;
     }
 
@@ -61,7 +59,7 @@ public class ScanPostBuild extends Recorder {
     }
 
     @DataBoundConstructor
-    public ScanPostBuild(String scanURL, String apiKey, String source, String exclude,
+    public ScanPostBuild(String scanURL, Secret apiKey, String source, String exclude,
                          String rule, int timeout, boolean isPrivateScan, boolean isAbortBuild, boolean isShowBlockedOnly) {
         this.scanURL = scanURL;
         this.apiKey = apiKey;
@@ -89,8 +87,8 @@ public class ScanPostBuild extends Recorder {
 
         //Start a scanner with 10 threads and scan
         Scanner scanner = new Scanner(10);
-        boolean foundBlockedResult = scanner.Start(filesToScan,build.getWorkspace() + "", scanURL, apiKey,
-                rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
+        boolean foundBlockedResult = scanner.Start(filesToScan,build.getWorkspace() + "", scanURL,
+                apiKey.getPlainText(), rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
 
         //Mark the build Aborted if needed
         if (foundBlockedResult && isAbortBuild) {
