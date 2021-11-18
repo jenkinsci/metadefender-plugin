@@ -1,7 +1,6 @@
 package com.opswat.jenkins.plugins.metadefender;
 
-import hudson.AbortException;
-import hudson.model.TaskListener;
+import jenkins.security.MasterToSlaveCallable;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
@@ -12,6 +11,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,75 +19,71 @@ import java.util.concurrent.*;
 
 /**
  * The Scanner class is for scanning files in threads
+ * it is designed to run on the node side
  */
-public class Scanner{
-    private int numberOfThread = 10;
+public class Scanner extends MasterToSlaveCallable<ArrayList<ScanResult>, IOException> {
+    private String workspacePath;
+    private String scanURL;
+    private String apiKey;
+    private String source;
+    private String exclude;
+    private String rule;
+    private boolean isPrivateScan;
+    private boolean isCreateLog;
+    private int timeout;
+    private String logFilePath;
 
-    public Scanner(int numberOfThread) {
-        this.numberOfThread = numberOfThread;
+
+    public Scanner(String workspacePath, String scanURL, String apiKey, String source,
+                   String exclude, String rule, boolean isPrivateScan, int timeout,
+                   boolean isCreateLog){
+        this.workspacePath = workspacePath;
+        this.scanURL = scanURL;
+        this.apiKey = apiKey;
+        this.source = source;
+        this.exclude = exclude;
+        this.isPrivateScan = isPrivateScan;
+        this.timeout = timeout;
+        this.rule = rule;
+        this.logFilePath = workspacePath + "/" + Constants.LOG_NAME;
+        this.isCreateLog = isCreateLog;
     }
 
-    //Scan thread
-    public boolean Start(ArrayList<File> filesToScan, String workspacePath, String scanURL, String apiKey, String rule, int timeout,
-                         boolean isPrivateScan, boolean isShowBlockedOnnly, TaskListener listener) throws AbortException{
 
-        ConsoleLog console = new ConsoleLog(Constants.SHORT_PLUGIN_NAME,listener.getLogger());
+    public ArrayList<ScanResult> call() {
+        ArrayList<File> filesToScan = Utils.createFileList(source, exclude, workspacePath);
+        Utils.writeLogFile(logFilePath, "Start scanning\n", false, isCreateLog);
+
         List<Future<ScanResult>> futuresList = new ArrayList<>();
 
         //Start ExecutorService with X threads
-        ExecutorService executor = Executors.newFixedThreadPool(this.numberOfThread);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
         for (File aFile : filesToScan) {
-            Callable<ScanResult> task = new ScannerThread(scanURL, apiKey, rule, aFile.getAbsolutePath(), timeout, isPrivateScan, console);
+            Utils.writeLogFile(logFilePath, "Scan File " + aFile.getAbsolutePath() +"\n", true, isCreateLog);
+            Callable<ScanResult> task = new ScanAction(aFile.getAbsolutePath());
             Future<ScanResult> future = executor.submit(task);
             futuresList.add(future);
         }
 
-        boolean foundBlockResult = false;
-
+        ArrayList<ScanResult> results = new ArrayList<>();
         for (Future<ScanResult> future : futuresList) {
             try {
                 ScanResult sc = future.get(timeout, TimeUnit.SECONDS);
-                if (sc.getDataID().equals("")) {
-                    console.logError(sc.getFilepath().substring(workspacePath.length()) + 1);
-                    foundBlockResult = true;
-                } else {
-                    if(sc.getBlockedResult().equals("Blocked")) {
-                        console.logInfo(sc.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, sc.getDataID()) + " | " + sc.getBlockedReason());
-                        foundBlockResult = true;
-                    } else if(!isShowBlockedOnnly) {
-                        console.logInfo(sc.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, sc.getDataID()) + " | " + sc.getScanResult());
-                    }
-                }
+                results.add(sc);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                console.logError(e.getMessage());
+                Utils.writeLogFile(logFilePath, "Failed to get scan result - " + e.toString() + "\n", true, isCreateLog);
             }
         }
         executor.shutdown();
-        console.logInfo("Total scanned files: " + filesToScan.size());
-        return foundBlockResult;
+        Utils.writeLogFile(logFilePath, "Total scanned files: " + filesToScan.size() + "\n", true, isCreateLog);
+        return results;
     }
 
-    /**
-     * ScannerThread is class actually does a scan
-     */
-    private class ScannerThread implements Callable<ScanResult>{
-        private String scanURL;
-        private String apiKey;
+    private class ScanAction implements Callable<ScanResult>{
         private String filePath;
-        private int timeout;
-        private boolean isPrivateScan;
-        private ConsoleLog console;
-        private String rule;
 
-        public ScannerThread(String scanURL, String apiKey, String rule, String filePath,
-                             int timeout, boolean isPrivateScan, ConsoleLog console) {
-            this.scanURL = scanURL;
-            this.apiKey = apiKey;
+        public ScanAction(String filePath) {
             this.filePath = filePath;
-            this.timeout = timeout;
-            this.isPrivateScan = isPrivateScan;
-            this.rule = rule;
-            this.console = console;
         }
 
         @Override
@@ -109,7 +105,9 @@ public class Scanner{
                 }
             }
             catch (Exception e) {
-                console.logInfo("File path: " + filePath + "\n" + e.getMessage());
+                String errMsg = "Failure in Call function " +e.getMessage();
+                sc.setBlockedReason(errMsg);
+                Utils.writeLogFile(logFilePath, errMsg + "\n", true, isCreateLog);
                 sc.setDataID("");
             }
             return sc;
@@ -132,14 +130,17 @@ public class Scanner{
 
             //set file name
             post.setHeader(Constants.HEADER_FILENAME, f.getName());
+
             //set APIKEY
             if (!apiKey.equals("")) {
                 post.setHeader(Constants.HEADER_APIKEY, apiKey);
             }
+
             //set Rule
             if (!rule.equals("")) {
                 post.setHeader(Constants.HEADER_RULE, rule);
             }
+
             //set PrivateScan
             if (isPrivateScan) {
                 post.setHeader(Constants.HEADER_PRIVATE_PROCESSING, "1");
@@ -149,18 +150,23 @@ public class Scanner{
 
             try {
                 HttpResponse response = httpClient.execute(post);
+
                 if (response.getStatusLine().getStatusCode() == 200) {
                     InputStream responseStream = response.getEntity().getContent();
                     String responseString = Utils.inputStreamtoString(responseStream);
                     JSONObject responseJSON = new JSONObject(responseString);
                     sc.setDataID(responseJSON.getString("data_id"));
                 } else {
-                    console.logError("File path: " + filePath + " - HTTP response code: " + response.getStatusLine().getStatusCode());
                     sc.setDataID("");
+                    sc.setBlockedReason("File path: " + filePath + " - HTTP response code: " + response.getStatusLine().getStatusCode());
+                    Utils.writeLogFile(logFilePath, "File path: " + filePath + " - HTTP response code: " +
+                            response.getStatusLine().getStatusCode() + "\n", true, isCreateLog);
                 }
             }
             catch (Exception e) {
-                console.logInfo("File path: " + filePath + " - " + e.getMessage());
+                String errMsg = "Failed to upload file " +e.getMessage();
+                sc.setBlockedReason(errMsg);
+                Utils.writeLogFile(logFilePath, errMsg + "\n", true, isCreateLog);
                 sc.setDataID("");
             }
             return sc;
@@ -199,12 +205,16 @@ public class Scanner{
                         Thread.sleep(1000);
                         count++;
                     } else{
-                        console.logError("Polling dataID " + dataID+ " returns http code " + response.getStatusLine().getStatusCode());
+                        String errMsg = "Polling dataID " + dataID+ " returns http code " + response.getStatusLine().getStatusCode();
+                        sc.setBlockedReason(errMsg);
+                        Utils.writeLogFile(logFilePath, errMsg + "\n", true, isCreateLog);
                         sc.setDataID("");
                     }
                 }
                 if (count > timeout) {
-                    console.logError("DataID: " + dataID +" - Scan timeout after " + timeout + "s");
+                    String errMsg = "Polling dataID " + dataID+ " timeout ";
+                    sc.setBlockedReason(errMsg);
+                    Utils.writeLogFile(logFilePath, errMsg + "\n", true, isCreateLog);
                     sc.setDataID(""); //Empty means failed
                 } else {
                     sc.setBlockedResult(responseJSON.getJSONObject("process_info").getString("result"));
@@ -212,7 +222,9 @@ public class Scanner{
                     sc.setScanResult(responseJSON.getJSONObject("scan_results").getString("scan_all_result_a"));
                 }
             }catch (Exception e) {
-                console.logError("DataID: " + dataID + " - " + e.getMessage());
+                String errMsg = "Polling dataID " + dataID+ " failed. "+ e.toString();
+                Utils.writeLogFile(logFilePath, errMsg +" \n", true, isCreateLog);
+                sc.setBlockedReason(errMsg);
                 sc.setDataID("");
             }
             return sc;

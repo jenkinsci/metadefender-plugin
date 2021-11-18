@@ -24,7 +24,10 @@
     <f:entry title="Show Blocked scan results only" field="isShowBlockedOnly">
         <f:checkbox default="true"/>
     </f:entry>
-    <f:entry title="Mark the build as failure if a threat is found" field="isAbortBuild">
+    <f:entry title="Mark the build as 'failed' if a threat is found" field="isAbortBuild">
+        <f:checkbox />
+    </f:entry>
+    <f:entry title="Create a log file. A metadefender-plugin.txt will be created to log issues" field="isCreateLog">
         <f:checkbox />
     </f:entry>
 </j:jelly>

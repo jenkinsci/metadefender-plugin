@@ -5,12 +5,10 @@ import hudson.model.*;
 import hudson.tasks.*;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
-import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.servlet.ServletException;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -24,6 +22,7 @@ public class ScanPostBuild extends Recorder {
     private final boolean isAbortBuild;
     private final boolean isPrivateScan;
     private final boolean isShowBlockedOnly;
+    private final boolean isCreateLog;
     private final int timeout;
 
     public String getScanURL() {
@@ -54,13 +53,16 @@ public class ScanPostBuild extends Recorder {
 
     public boolean getIsShowBlockedOnly() { return isShowBlockedOnly;}
 
+    public boolean getIsCreateLog() { return isCreateLog;}
+
     public int getTimeout() {
         return timeout;
     }
 
     @DataBoundConstructor
     public ScanPostBuild(String scanURL, Secret apiKey, String source, String exclude,
-                         String rule, int timeout, boolean isPrivateScan, boolean isAbortBuild, boolean isShowBlockedOnly) {
+                         String rule, int timeout, boolean isPrivateScan, boolean isAbortBuild, boolean isShowBlockedOnly,
+                         boolean isCreateLog) {
         this.scanURL = scanURL;
         this.apiKey = apiKey;
         this.source = source;
@@ -70,6 +72,7 @@ public class ScanPostBuild extends Recorder {
         this.isShowBlockedOnly = isShowBlockedOnly;
         this.rule = rule;
         this.timeout = timeout;
+        this.isCreateLog = isCreateLog;
     }
 
     @Override
@@ -82,15 +85,34 @@ public class ScanPostBuild extends Recorder {
         console.logInfo("Scan folder/files: " + source);
         console.logInfo("Exclude folder/files: " + exclude);
 
-        //Build a list of files to scan
-        ArrayList<File> filesToScan = Utils.createFileList(source, exclude, build.getWorkspace() + "");
+        String workspacePath = build.getWorkspace() + "";
 
-        //Start a scanner with 10 threads and scan
-        Scanner scanner = new Scanner(10);
-        boolean foundBlockedResult = scanner.Start(filesToScan,build.getWorkspace() + "", scanURL,
-                apiKey.getPlainText(), rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
-
-        //Mark the build Aborted if needed
+        boolean foundBlockedResult = false;
+        Scanner sc = new Scanner(workspacePath, scanURL, apiKey.getPlainText(), source,
+                exclude, rule, isPrivateScan, timeout, isCreateLog);
+        try {
+            ArrayList<ScanResult> results = launcher.getChannel().call(sc);
+            if (results == null) {
+                throw new AbortException("Can't get scan result, please check log file");
+            } else {
+                for (ScanResult rs : results) {
+                    if (rs.getDataID().equals("")) {
+                        console.logError(rs.getFilepath().substring(workspacePath.length() + 1));
+                        foundBlockedResult = true;
+                    } else {
+                        if (rs.getBlockedResult().equals("Blocked")) {
+                            console.logInfo(rs.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, rs.getDataID()) + " | " + rs.getBlockedReason());
+                            foundBlockedResult = true;
+                        } else if (!isShowBlockedOnly) {
+                            console.logInfo(rs.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, rs.getDataID()) + " | " + rs.getScanResult());
+                        }
+                    }
+                }
+            }
+        }
+        catch (IOException | InterruptedException e) {
+            throw new AbortException("Found an issue during scan");
+        }
         if (foundBlockedResult && isAbortBuild) {
             throw new AbortException("Found an issue during scan");
         }
@@ -107,7 +129,6 @@ public class ScanPostBuild extends Recorder {
         return BuildStepMonitor.NONE;
     }
 
-    @Symbol("greet")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
 

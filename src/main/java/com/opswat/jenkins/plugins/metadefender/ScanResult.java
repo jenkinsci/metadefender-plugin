@@ -1,6 +1,8 @@
 package com.opswat.jenkins.plugins.metadefender;
 
-public class ScanResult {
+import java.io.Serializable;
+
+public class ScanResult implements Serializable {
     private String filepath = "";
     private String blockedResult = "";
     private String blockedReason = "";

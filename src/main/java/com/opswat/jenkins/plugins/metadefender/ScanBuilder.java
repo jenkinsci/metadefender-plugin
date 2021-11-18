@@ -9,16 +9,12 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import jenkins.tasks.SimpleBuildStep;
-import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.servlet.ServletException;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
 
 public class ScanBuilder extends Builder implements SimpleBuildStep {
 
@@ -30,6 +26,7 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
     private final boolean isAbortBuild;
     private final boolean isPrivateScan;
     private final boolean isShowBlockedOnly;
+    private final boolean isCreateLog;
     private final int timeout;
 
     public String getScanURL() {
@@ -58,6 +55,8 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
 
     public boolean getIsPrivateScan() { return isPrivateScan;}
 
+    public boolean getIsCreateLog() { return isCreateLog;}
+
     public boolean getIsShowBlockedOnly() { return isShowBlockedOnly;}
 
     public int getTimeout() {
@@ -66,7 +65,7 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
 
     @DataBoundConstructor
     public ScanBuilder(String scanURL, Secret apiKey, String source, String exclude, String rule,
-                       int timeout, boolean isAbortBuild, boolean isPrivateScan, boolean isShowBlockedOnly) {
+                       int timeout, boolean isAbortBuild, boolean isPrivateScan, boolean isShowBlockedOnly, boolean isCreateLog) {
         this.scanURL = scanURL;
         this.apiKey = apiKey;
         this.source = source;
@@ -76,10 +75,11 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
         this.isShowBlockedOnly = isShowBlockedOnly;
         this.rule = rule;
         this.timeout = timeout;
+        this.isCreateLog = isCreateLog;
     }
 
     @Override
-    public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) throws InterruptedException, IOException, AbortException {
+    public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) throws InterruptedException, IOException {
         ConsoleLog console = new ConsoleLog(Constants.SHORT_PLUGIN_NAME, listener.getLogger());
         console.logInfo("Scan URL: " + scanURL );
         console.logInfo("Rule: " + rule );
@@ -87,22 +87,34 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
         console.logInfo("Is the build failed if threads found?: " + isAbortBuild );
         console.logInfo("Scan folder/files: " + source);
         console.logInfo("Exclude folder/files: " + exclude);
+        String workspacePath = workspace + "";
 
-        //Build a list of files to scan
-        ArrayList<File> filesToScan = Utils.createFileList(source, exclude, workspace.getRemote());
-
-        //Start a scanner with 10 threads and scan
-        Scanner scanner = new Scanner(10);
-        boolean foundBlockedResult = scanner.Start(filesToScan,workspace + "",
-                scanURL, apiKey.getPlainText(), rule, timeout, isPrivateScan, isShowBlockedOnly, listener);
-
-        //Mark the build Aborted if needed
+        boolean foundBlockedResult = false;
+        Scanner sc = new Scanner(workspacePath, scanURL, apiKey.getPlainText(), source,
+                exclude, rule, isPrivateScan, timeout, isCreateLog);
+        ArrayList<ScanResult> results = launcher.getChannel().call(sc);
+        if (results == null) {
+            throw new AbortException("Can't get scan result, please check log file");
+        } else {
+            for (ScanResult rs : results) {
+                if (rs.getDataID().equals("")) {
+                    console.logError(rs.getFilepath().substring(workspacePath.length() + 1) + "|" + rs.getBlockedReason());
+                    foundBlockedResult = true;
+                } else {
+                    if(rs.getBlockedResult().equals("Blocked")) {
+                        console.logInfo(rs.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, rs.getDataID()) + " | " + rs.getBlockedReason());
+                        foundBlockedResult = true;
+                    } else if(!isShowBlockedOnly) {
+                        console.logInfo(rs.getFilepath().substring(workspacePath.length() + 1) + " | " + Utils.createScanResultLink(scanURL, rs.getDataID()) + " | " + rs.getScanResult());
+                    }
+                }
+            }
+        }
         if (foundBlockedResult && isAbortBuild) {
             throw new AbortException("Found an issue during scan");
         }
     }
 
-    @Symbol("greet")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         public FormValidation doCheckScanURL(@QueryParameter String value)

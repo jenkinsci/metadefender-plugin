@@ -14,4 +14,6 @@ public class Constants {
     public static String HEADER_FILENAME = "filename";
     public static String HEADER_RULE = "rule";
     public static String HEADER_PRIVATE_PROCESSING = "privateprocessing";
+
+    public static String LOG_NAME = "metadefender-plugin.log";
 }

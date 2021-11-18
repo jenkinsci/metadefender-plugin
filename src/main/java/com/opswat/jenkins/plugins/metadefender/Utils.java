@@ -128,5 +128,25 @@ public class Utils {
         }
         return filesToScan;
     }
+
+    /**
+     * Create log file
+     *
+     * @param filePath log file path
+     * @param isAppend append or new
+     * @param isLog if false, don't log
+     *
+     * */
+    public static void writeLogFile(String filePath, String content, boolean isAppend, boolean isLog){
+        if(!isLog) return;
+
+        try {
+            FileWriter myWriter = new FileWriter(filePath,isAppend);
+            myWriter.write(content);
+            myWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
 
