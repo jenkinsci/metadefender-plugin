@@ -92,7 +92,7 @@ public class Utils {
 	 * @return output paths
      */
     private static String[] convertRelativePathtoAbsolutedPath(String rootPath, String []input){
-        if(input == null) return null;
+        if(input == null) return new String[0];
 
         String[] myStringArray = new String[input.length];
 
@@ -140,12 +140,20 @@ public class Utils {
     public static void writeLogFile(String filePath, String content, boolean isAppend, boolean isLog){
         if(!isLog) return;
 
+        Writer myWriter = null;
+        BufferedWriter out = null;
         try {
-            FileWriter myWriter = new FileWriter(filePath,isAppend);
+            myWriter = new OutputStreamWriter(new FileOutputStream(filePath, isAppend), StandardCharsets.UTF_8);
             myWriter.write(content);
-            myWriter.close();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            try {
+                if (myWriter != null)
+                    myWriter.close();
+            }catch (IOException e) {
+                //not sure what to do
+            }
         }
     }
 }

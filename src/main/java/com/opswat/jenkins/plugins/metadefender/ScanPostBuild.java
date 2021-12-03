@@ -2,6 +2,7 @@ package com.opswat.jenkins.plugins.metadefender;
 
 import hudson.*;
 import hudson.model.*;
+import hudson.remoting.VirtualChannel;
 import hudson.tasks.*;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -91,7 +92,11 @@ public class ScanPostBuild extends Recorder {
         Scanner sc = new Scanner(workspacePath, scanURL, apiKey.getPlainText(), source,
                 exclude, rule, isPrivateScan, timeout, isCreateLog);
         try {
-            ArrayList<ScanResult> results = launcher.getChannel().call(sc);
+            ArrayList<ScanResult> results = null;
+            VirtualChannel channel = launcher.getChannel();
+            if (channel != null) {
+                results = channel.call(sc);
+            }
             if (results == null) {
                 throw new AbortException("Can't get scan result, please check log file");
             } else {

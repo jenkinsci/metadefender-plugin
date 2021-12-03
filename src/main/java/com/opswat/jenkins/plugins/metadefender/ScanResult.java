@@ -3,6 +3,8 @@ package com.opswat.jenkins.plugins.metadefender;
 import java.io.Serializable;
 
 public class ScanResult implements Serializable {
+    private static final long serialVersionUID = 6106269076155338045L;
+    
     private String filepath = "";
     private String blockedResult = "";
     private String blockedReason = "";

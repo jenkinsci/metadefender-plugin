@@ -2,6 +2,7 @@ package com.opswat.jenkins.plugins.metadefender;
 
 import jenkins.security.MasterToSlaveCallable;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -22,6 +23,7 @@ import java.util.concurrent.*;
  * it is designed to run on the node side
  */
 public class Scanner extends MasterToSlaveCallable<ArrayList<ScanResult>, IOException> {
+    private static final long serialVersionUID = 6106269076155338045L;
     private String workspacePath;
     private String scanURL;
     private String apiKey;
@@ -163,7 +165,7 @@ public class Scanner extends MasterToSlaveCallable<ArrayList<ScanResult>, IOExce
                             response.getStatusLine().getStatusCode() + "\n", true, isCreateLog);
                 }
             }
-            catch (Exception e) {
+            catch (IOException e) {
                 String errMsg = "Failed to upload file " +e.getMessage();
                 sc.setBlockedReason(errMsg);
                 Utils.writeLogFile(logFilePath, errMsg + "\n", true, isCreateLog);
@@ -221,7 +223,7 @@ public class Scanner extends MasterToSlaveCallable<ArrayList<ScanResult>, IOExce
                     sc.setBlockedReason(responseJSON.getJSONObject("process_info").getString("blocked_reason"));
                     sc.setScanResult(responseJSON.getJSONObject("scan_results").getString("scan_all_result_a"));
                 }
-            }catch (Exception e) {
+            }catch (InterruptedException|IOException e) {
                 String errMsg = "Polling dataID " + dataID+ " failed. "+ e.toString();
                 Utils.writeLogFile(logFilePath, errMsg +" \n", true, isCreateLog);
                 sc.setBlockedReason(errMsg);

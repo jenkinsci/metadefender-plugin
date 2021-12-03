@@ -4,6 +4,7 @@ import hudson.*;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -92,7 +93,11 @@ public class ScanBuilder extends Builder implements SimpleBuildStep {
         boolean foundBlockedResult = false;
         Scanner sc = new Scanner(workspacePath, scanURL, apiKey.getPlainText(), source,
                 exclude, rule, isPrivateScan, timeout, isCreateLog);
-        ArrayList<ScanResult> results = launcher.getChannel().call(sc);
+        ArrayList<ScanResult> results = null;
+        VirtualChannel channel = launcher.getChannel();
+        if (channel != null) {
+            results = channel.call(sc);
+        }
         if (results == null) {
             throw new AbortException("Can't get scan result, please check log file");
         } else {
