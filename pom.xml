@@ -9,15 +9,14 @@
     </parent>
     <groupId>io.jenkins.plugins</groupId>	
     <artifactId>metadefender</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <packaging>hpi</packaging>
     <properties>
         <!-- Baseline Jenkins version you use to build the plugin. Users must have this version or newer to run. -->
         <jenkins.version>2.164.3</jenkins.version>
         <java.level>8</java.level>
         <!-- Other properties you may want to use:
-          ~ java.level: set to 6 if your jenkins.version <= 1.611
-          ~ jenkins-test-harness.version: Jenkins Test Harness version you use to test the plugin. For Jenkins version >= 1.580.1 use JTH 2.0 or higher.
+          ~ java.level: set to 6 if your jenkins.version <= 1.611 ~ jenkins-test-harness.version: Jenkins Test Harness version you use to test the plugin. For Jenkins version >= 1.580.1 use JTH 2.0 or higher.
           ~ hpi-plugin.version: The HPI Maven Plugin version used by the plugin..
           ~ stapler-plugin.version: The Stapler Maven plugin version required by the plugin.
      -->
@@ -110,7 +109,8 @@
         <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
-    </scm>
+      <tag>metadefender-1.0</tag>
+  </scm>
 
     <repositories>
         <repository>
