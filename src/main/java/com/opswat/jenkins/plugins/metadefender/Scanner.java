@@ -2,7 +2,6 @@ package com.opswat.jenkins.plugins.metadefender;
 
 import jenkins.security.MasterToSlaveCallable;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;

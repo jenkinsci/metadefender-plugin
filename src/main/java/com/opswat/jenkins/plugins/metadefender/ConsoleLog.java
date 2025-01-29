@@ -3,7 +3,6 @@ package com.opswat.jenkins.plugins.metadefender;
 import hudson.AbortException;
 
 import java.io.PrintStream;
-import java.util.Date;
 import java.util.logging.Logger;
 
 public class ConsoleLog {

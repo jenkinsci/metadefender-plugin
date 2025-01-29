@@ -1,6 +1,9 @@
 package com.opswat.jenkins.plugins.metadefender;
 
-import hudson.*;
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
