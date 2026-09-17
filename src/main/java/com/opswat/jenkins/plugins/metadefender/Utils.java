@@ -1,7 +1,5 @@
 package com.opswat.jenkins.plugins.metadefender;
 
-import org.apache.commons.lang.ArrayUtils;
-
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +10,30 @@ import java.util.Set;
 public class Utils {
 
     /**
+     * Null-safe check whether an array contains the given value.
+     *
+     * Replaces org.apache.commons.lang.ArrayUtils.contains(): Apache Commons Lang 2.6 was
+     * removed from Jenkins core in 2.579, and the plugin never declared it as its own
+     * dependency. Commons Lang 2.x has been EOL since 2011, so the call is inlined here
+     * rather than bundling an unmaintained library.
+     *
+     * @param array the array to search, may be null
+     * @param value the value to look for, may be null
+     * @return true if the array is non-null and contains value
+     */
+    private static boolean arrayContains(String[] array, String value) {
+        if (array == null) {
+            return false;
+        }
+        for (String element : array) {
+            if (element == null ? value == null : element.equals(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * List file recursively
      *
      * @param sourcePath the source file path, can be a file or folder
@@ -19,7 +41,7 @@ public class Utils {
      * @param exclude exclude files/folders in this list
      */
     public static void listFilesRecursively(String sourcePath, ArrayList<File> output, String []exclude){
-        if (exclude!= null && ArrayUtils.contains(exclude, sourcePath)) {
+        if (arrayContains(exclude, sourcePath)) {
             return;
         }
         File dir = new File(sourcePath);
